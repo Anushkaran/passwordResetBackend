@@ -1,110 +1,83 @@
-// backend/controllers/authController.js
-const crypto    = require('crypto');
-const bcrypt    = require('bcryptjs');
-const User      = require('../models/User');
-const sendEmail = require('../utils/sendEmail');
-const { CLIENT_URL } = process.env;
+const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const User   = require('../models/User');
+const nodemailer = require('nodemailer');
 
-/** 
- * Registration handler 
- */
-async function register(req, res, next) {
+// POST /api/auth/register
+exports.registerUser = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-    if (await User.findOne({ email })) {
-      return res.status(400).json({ message: 'Email already registered' });
-    }
-    const hashed = await bcrypt.hash(password, 10);
-    await new User({ email, password: hashed }).save();
-    res.status(201).json({ message: 'Registration successful' });
+    if (!email || !password) 
+      return res.status(400).json({ message: 'Email & password required' });
+
+    if (await User.findOne({ email }))
+      return res.status(400).json({ message: 'User already exists' });
+
+    const hash = await bcrypt.hash(password, 10);
+    await new User({ email, password: hash }).save();
+
+    res.json({ message: 'User registered successfully' });
   } catch (err) {
     next(err);
   }
-}
+};
 
-/** 
- * Forgot-password handler 
- */
-async function forgotPassword(req, res, next) {
+// POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) 
-      return res.status(404).json({ message: 'Email not found' });
+      return res.status(404).json({ message: 'User not found' });
 
     const token = crypto.randomBytes(32).toString('hex');
-    user.resetToken   = token;
-    user.resetExpires = Date.now() + 3600 * 1000;
+    user.resetToken  = token;
+    user.tokenExpiry = Date.now() + 3600000; // 1h
     await user.save();
 
-    const resetURL = `${CLIENT_URL}/reset-password/${token}`;
-
-    // Log for development
-    console.log('🔑 Password reset URL:', resetURL);
-
-    const html = `
-      <p>You requested a password reset.</p>
-      <p><a href="${resetURL}">Click here to reset your password</a></p>
-      <p>This link expires in 1 hour.</p>
-    `;
-    await sendEmail(email, 'Password Reset', html);
-
-    // Return the URL for easy dev testing
-    res.json({
-      message: 'Password reset link sent',
-      resetURL
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: process.env.EMAIL_PORT,
+      secure: false, // TLS
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
     });
+
+    const link = `${process.env.CLIENT_URL}/reset-password/${token}`;
+    await transporter.sendMail({
+      to: email,
+      subject: 'Password Reset',
+      html: `<p>Click <a href="${link}">here</a> to reset your password. Link expires in 1 hour.</p>`
+    });
+
+    res.json({ message: 'Reset email sent' });
   } catch (err) {
     next(err);
   }
-}
+};
 
-/** 
- * Verify-token handler 
- */
-async function verifyToken(req, res, next) {
-  try {
-    const { token } = req.params;
-    const user = await User.findOne({
-      resetToken: token,
-      resetExpires: { $gt: Date.now() }
-    });
-    if (!user)
-      return res.status(400).json({ message: 'Invalid or expired token' });
-    res.json({ message: 'Token valid' });
-  } catch (err) {
-    next(err);
-  }
-}
-
-/** 
- * Reset-password handler 
- */
-async function resetPassword(req, res, next) {
+// POST /api/auth/reset-password/:token
+exports.resetPassword = async (req, res, next) => {
   try {
     const { token }    = req.params;
     const { password } = req.body;
+
     const user = await User.findOne({
       resetToken: token,
-      resetExpires: { $gt: Date.now() }
+      tokenExpiry: { $gt: Date.now() }
     });
-    if (!user)
+    if (!user) 
       return res.status(400).json({ message: 'Invalid or expired token' });
 
-    user.password     = await bcrypt.hash(password, 10);
-    user.resetToken   = undefined;
-    user.resetExpires = undefined;
+    user.password   = await bcrypt.hash(password, 10);
+    user.resetToken  = undefined;
+    user.tokenExpiry = undefined;
     await user.save();
 
-    res.json({ message: 'Password has been reset' });
+    res.json({ message: 'Password updated successfully' });
   } catch (err) {
     next(err);
   }
-}
-
-module.exports = {
-  register,
-  forgotPassword,
-  verifyToken,
-  resetPassword
 };
