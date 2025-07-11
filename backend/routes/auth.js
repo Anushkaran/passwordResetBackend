@@ -1,20 +1,19 @@
-// backend/routes/auth.js
 const express = require('express');
 const {
-  register,
+  registerUser,
   forgotPassword,
-  verifyToken,
   resetPassword
 } = require('../controllers/authController');
 
 const router = express.Router();
 
-// === Registration endpoint ===
-router.post('/register', register);
+// 1. User signup
+router.post('/register', registerUser);
 
-// === Existing reset flow ===
+// 2. Request reset link
 router.post('/forgot-password', forgotPassword);
-router.get('/reset-password/:token', verifyToken);
+
+// 3. Reset password by token
 router.post('/reset-password/:token', resetPassword);
 
 module.exports = router;
