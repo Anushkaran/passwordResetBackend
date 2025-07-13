@@ -1,0 +1,56 @@
+Request:
+
+curl -i -X POST https://passwordresetbackend-01ix.onrender.com/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "anushkaran97@gmail.com",
+    "password": "MySecureP@ss1"
+  }'
+
+Response:
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+
+{
+  "message": "User registered successfully"
+}
+
+
+on hitting it again,
+Response:
+{
+  "message": "User already exists"
+}
+
+
+Request:
+curl -i -X POST https://passwordresetbackend-01ix.onrender.com/api/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "anushkaran97@example.com"
+  }'
+
+Response:
+{
+  "message": "Reset email sent"
+}
+
+Request:
+curl -i -X POST https://passwordresetbackend-01ix.onrender.com/api/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "anushkaran79@example.com"
+  }'
+
+Response:
+
+{
+  "message": "User not found"
+}
+
+
+
+
+
+
+
