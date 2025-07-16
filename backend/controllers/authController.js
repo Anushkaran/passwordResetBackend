@@ -81,3 +81,24 @@ exports.resetPassword = async (req, res, next) => {
     next(err);
   }
 };
+
+// POST /api/auth/login
+exports.loginUser = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    // find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    // compare hashed password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    // success
+    res.json({ message: 'Login successful' });
+  } catch (err) {
+    next(err);
+  }
+};
